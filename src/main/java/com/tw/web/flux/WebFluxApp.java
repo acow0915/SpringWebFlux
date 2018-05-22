@@ -15,12 +15,20 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.UserDetailsRepositoryReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.tw.web.flux.jwt.JWTAuthorizationWebFilter;
+import com.tw.web.flux.jwt.WebFilterChainServerJWTAuthenticationSuccessHandler;
 
 import reactor.core.publisher.Mono;
 
@@ -94,7 +102,7 @@ class SecurityConfiguration {
 	@Autowired
 	private DataSource dataSource;
 	
-	//DEMO
+	//IN MEMORY DEMO
 	/*
 	@Bean
 	public MapReactiveUserDetailsService userDetailsService() {
@@ -113,5 +121,31 @@ class SecurityConfiguration {
 		JdbcReactiveUserDetailsService userDetailsService = new JdbcReactiveUserDetailsService();
 		userDetailsService.setDataSource(dataSource);
 		return userDetailsService;
+	}
+	
+	/**
+	 * JWT
+	 * @param http
+	 * @return
+	 */
+	@Bean
+    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+		AuthenticationWebFilter authenticationJWT;
+		authenticationJWT = new AuthenticationWebFilter(new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService()));
+		authenticationJWT.setAuthenticationSuccessHandler(new WebFilterChainServerJWTAuthenticationSuccessHandler());
+		http
+        .authorizeExchange()
+        .pathMatchers("/login", "/")
+        .permitAll()
+        .and()
+        .addFilterAt(authenticationJWT, SecurityWebFiltersOrder.FIRST)
+        .authorizeExchange()
+        .pathMatchers("/**")
+        .authenticated()
+        .and()
+        .addFilterAt(new JWTAuthorizationWebFilter(), 
+        		SecurityWebFiltersOrder.HTTP_BASIC);
+
+		return http.build();
 	}
 }
